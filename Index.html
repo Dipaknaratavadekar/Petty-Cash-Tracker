@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mangalam Momento Moshi - Petty Cash</title>
+<style>
+:root{--navy:#17365d;--blue:#2463c5;--bg:#f4f7fb;--border:#d8e0ea;--green:#16834b;--red:#bd3b32}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:#202a36}
+.header{background:linear-gradient(135deg,#17365d,#2d6ea8);color:#fff;padding:22px 28px}
+.header h1{margin:0;font-size:25px}.header p{margin:6px 0 0}
+.wrap{max-width:1500px;margin:20px auto;padding:0 16px}.card{background:#fff;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 5px 20px rgba(20,50,90,.08)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}label{font-size:12px;font-weight:bold;color:#58677a;display:block;margin-bottom:6px}
+input,textarea,button{font:inherit}input,textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:#fff}textarea{min-height:74px;resize:vertical}.span2{grid-column:span 2}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:15px}
+button{border:0;border-radius:8px;padding:10px 17px;font-weight:700;cursor:pointer}.primary{background:var(--blue);color:white}.secondary{background:#e9eff7;color:#17365d}.danger{background:#fee2e2;color:#9f2d25}
+#status{font-size:13px;color:#59697b}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{padding:15px;border:1px solid var(--border);border-radius:10px;background:#f9fbfd}.stat span{font-size:12px;color:#657386}.stat b{display:block;font-size:21px;margin-top:5px}.credit{color:var(--green)}.debit{color:var(--red)}
+.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:1050px}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}th{background:#eef3f9;font-size:12px;color:#405269;position:sticky;top:0}td.num,th.num{text-align:right}.balance{font-weight:bold}.file{color:#2463c5;font-weight:bold;text-decoration:none}.empty{text-align:center;padding:28px;color:#78879a}
+@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.span2{grid-column:span 2}.summary{grid-template-columns:1fr}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.span2{grid-column:span 1}}
+</style>
+</head>
+<body>
+<div class="header"><h1>Mangalam Landmark</h1><p>Project: <strong>Mangalam Momento Moshi</strong> · Petty Cash Expense Tracker</p></div>
+<div class="wrap">
+<div class="card">
+<div class="grid">
+<div><label>Date *</label><input id="date" type="date"></div>
+<div><label>Vendor *</label><input id="vendor" placeholder="Vendor / Payee"></div>
+<div><label>Bill Date *</label><input id="billDate" type="date"></div>
+<div><label>Credit (₹)</label><input id="credit" type="number" min="0" step="0.01" value="0"></div>
+<div><label>Debit (₹)</label><input id="debit" type="number" min="0" step="0.01" value="0"></div>
+<div class="span2"><label>Description *</label><textarea id="description" placeholder="Expense description / purpose"></textarea></div>
+<div><label>Bill / Voucher Attachment</label><input id="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"></div>
+</div>
+<div class="actions">
+<button class="primary" onclick="saveEntry()">Save Expense</button>
+<button class="secondary" onclick="clearForm()">Clear</button>
+<span id="status"></span>
+</div>
+</div>
+
+<div class="card">
+<div class="summary">
+<div class="stat"><span>Total Credit</span><b class="credit" id="totalCredit">₹0.00</b></div>
+<div class="stat"><span>Total Debit</span><b class="debit" id="totalDebit">₹0.00</b></div>
+<div class="stat"><span>Current Balance</span><b id="currentBalance">₹0.00</b></div>
+</div>
+</div>
+
+<div class="card">
+<div class="actions" style="justify-content:space-between"><h3 style="margin:0">Petty Cash Register</h3><button class="secondary" onclick="loadEntries()">↻ Refresh</button></div>
+<div class="table-wrap">
+<table><thead><tr>
+<th>Sr No</th><th>Date</th><th>Vendor</th><th>Description</th><th>Bill Date</th><th>Bill / Voucher</th>
+<th class="num">Credit (₹)</th><th class="num">Debit (₹)</th><th class="num">Balance (₹)</th>
+</tr></thead><tbody id="rows"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody></table>
+</div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const money=n=>'₹'+Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function setStatus(x){$('status').textContent=x}
+function fileToB64(file){return new Promise((resolve,reject)=>{if(!file)return resolve(null);const r=new FileReader();r.onload=()=>resolve({name:file.name,mime:file.type,data:r.result.split(',')[1]});r.onerror=reject;r.readAsDataURL(file)})}
+async function saveEntry(){
+ const date=$('date').value,vendor=$('vendor').value.trim(),billDate=$('billDate').value,description=$('description').value.trim();
+ const credit=Number($('credit').value||0),debit=Number($('debit').value||0),file=$('file').files[0];
+ if(!date||!vendor||!billDate||!description)return alert('Please enter Date, Vendor, Bill Date and Description.');
+ if(credit>0&&debit>0)return alert('Enter either Credit or Debit for one transaction.');
+ if(credit===0&&debit===0)return alert('Enter a Credit or Debit amount.');
+ setStatus('Saving...');
+ const payload={date,vendor,billDate,description,credit,debit,file:await fileToB64(file)};
+ google.script.run.withSuccessHandler(r=>{setStatus(r.message||'Saved');clearForm();loadEntries()}).withFailureHandler(e=>setStatus('Error: '+e.message)).saveEntry(payload);
+}
+function clearForm(){const d=new Date().toISOString().slice(0,10);$('date').value=d;$('billDate').value=d;$('vendor').value='';$('description').value='';$('credit').value='0';$('debit').value='0';$('file').value=''}
+function loadEntries(){
+ $('rows').innerHTML='<tr><td colspan="9" class="empty">Loading...</td></tr>';
+ google.script.run.withSuccessHandler(render).withFailureHandler(e=>$('rows').innerHTML='<tr><td colspan="9" class="empty">Error: '+esc(e.message)+'</td></tr>').getEntries();
+}
+function render(data){
+ let tc=0,td=0,bal=0;
+ const rows=data.map((x,i)=>{tc+=+x.credit||0;td+=+x.debit||0;bal+=(+x.credit||0)-(+x.debit||0);
+ return `<tr><td>${i+1}</td><td>${esc(x.date)}</td><td>${esc(x.vendor)}</td><td>${esc(x.description)}</td><td>${esc(x.billDate)}</td><td>${x.fileUrl?`<a class="file" href="${x.fileUrl}" target="_blank">View file</a>`:'—'}</td><td class="num credit">${money(x.credit)}</td><td class="num debit">${money(x.debit)}</td><td class="num balance">${money(bal)}</td></tr>`}).join('');
+ $('rows').innerHTML=rows||'<tr><td colspan="9" class="empty">No expenses recorded.</td></tr>';
+ $('totalCredit').textContent=money(tc);$('totalDebit').textContent=money(td);$('currentBalance').textContent=money(bal);
+}
+window.onload=()=>{clearForm();loadEntries()}
+</script>
+</body></html>
